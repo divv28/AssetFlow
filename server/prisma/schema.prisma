@@ -38,6 +38,10 @@ model User {
   headedDepartment   Department? @relation("DepartmentHead")
   createdDepartments Department[] @relation("DepartmentCreator")
   auditLogs          AuditLog[]
+  createdAssets      Asset[]     @relation("AssetCreator")
+  uploadedDocuments  AssetDocument[] @relation("DocumentUploader")
+  statusChanges      AssetStatusHistory[] @relation("StatusChanger")
+  allocatedAssets    Asset[]     @relation("AssetAllocation")
 
   @@map("users")
 }
@@ -65,6 +69,7 @@ model Department {
   deletedAt          DateTime?    // Soft delete marker
 
   employees          User[]       @relation("DepartmentEmployees")
+  assets             Asset[]
 
   @@map("departments")
 }
@@ -78,6 +83,7 @@ model Category {
   status            UserStatus @default(ACTIVE)
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
+  assets            Asset[]
 
   @@map("categories")
 }
@@ -93,4 +99,83 @@ model AuditLog {
   createdAt  DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ALLOCATED
+  RESERVED
+  UNDER_MAINTENANCE
+  LOST
+  RETIRED
+  DISPOSED
+}
+
+model Asset {
+  id              String         @id @default(uuid())
+  assetTag        String         @unique
+  name            String
+  categoryId      String
+  category        Category       @relation(fields: [categoryId], references: [id])
+  departmentId    String?
+  department      Department?    @relation(fields: [departmentId], references: [id])
+  serialNumber    String?        @unique
+  qrCode          String         @unique
+  acquisitionDate DateTime?
+  acquisitionCost Decimal?       @db.Decimal(12, 2)
+  manufacturer    String?
+  vendor          String?
+  condition       AssetCondition @default(NEW)
+  location        String?
+  isBookable      Boolean        @default(false)
+  warrantyExpiry  DateTime?
+  status          AssetStatus    @default(AVAILABLE)
+  remarks         String?
+  createdBy       String
+  creator         User           @relation("AssetCreator", fields: [createdBy], references: [uuid])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?      // Soft delete marker
+  allocatedToId   String?
+  allocatedTo     User?          @relation("AssetAllocation", fields: [allocatedToId], references: [uuid])
+
+  documents       AssetDocument[]
+  statusHistory   AssetStatusHistory[]
+
+  @@map("assets")
+}
+
+model AssetDocument {
+  id         String   @id @default(uuid())
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id])
+  fileUrl    String
+  fileType   String   // e.g. "photo", "invoice", "manual"
+  uploadedBy String
+  uploader   User     @relation("DocumentUploader", fields: [uploadedBy], references: [uuid])
+  createdAt  DateTime @default(now())
+
+  @@map("asset_documents")
+}
+
+model AssetStatusHistory {
+  id         String   @id @default(uuid())
+  assetId    String
+  asset      Asset    @relation(fields: [assetId], references: [id])
+  fromStatus String?
+  toStatus   String
+  changedBy  String
+  changer    User     @relation("StatusChanger", fields: [changedBy], references: [uuid])
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@map("asset_status_histories")
 }

@@ -4,6 +4,8 @@ import Login from '../pages/Login';
 import Signup from '../pages/Signup';
 import Dashboard from '../pages/Dashboard';
 import OrgSetup from '../pages/OrgSetup';
+import AssetsDirectory from '../pages/AssetsDirectory';
+import AssetDetails from '../pages/AssetDetails';
 import PrivateRoute from './PrivateRoute';
 import PublicRoute from './PublicRoute';
 
@@ -42,6 +44,22 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute allowedRoles={['ADMIN']}>
             <OrgSetup />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/assets"
+        element={
+          <PrivateRoute>
+            <AssetsDirectory />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/assets/:id"
+        element={
+          <PrivateRoute>
+            <AssetDetails />
           </PrivateRoute>
         }
       />

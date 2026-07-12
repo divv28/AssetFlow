@@ -224,3 +224,97 @@ Base path: `/api/employees` (Requires `ADMIN` role)
 - **Endpoint:** `GET /api/employees/dashboard-stats`
 - **Access:** Protected (ADMIN Only)
 - **Description:** Returns total department, categories, employees, department head, and asset manager count metrics.
+
+---
+
+## 📦 Asset Registration & Directory (Phase 3)
+Base path: `/api/assets`
+
+### 1. List Assets
+- **Endpoint:** `GET /api/assets`
+- **Access:** Protected (All Roles; scoped by role at the service layer)
+- **Query Params:** `?page=1&limit=20&sortBy=createdAt&order=desc&search=macbook&status=AVAILABLE&categoryId=some-uuid&departmentId=some-uuid&isBookable=true&showDeleted=false`
+
+---
+
+### 2. Register Asset
+- **Endpoint:** `POST /api/assets`
+- **Access:** Protected (ADMIN and ASSET_MANAGER Only)
+- **Description:** Registers a new asset. Asset tags (e.g. `AF-0004`) are generated atomically using a PostgreSQL sequence. Unique QR codes are generated on creation.
+
+#### Request Body
+```json
+{
+  "name": "Lenovo ThinkPad X1 Carbon",
+  "categoryId": "d30f40d1-0428-4e3f-b883-fa492f254e22",
+  "departmentId": "c30f40d1-0428-4e3f-b883-fa492f254e21",
+  "serialNumber": "SN-LENOVO-X1-883",
+  "acquisitionDate": "2026-06-01",
+  "acquisitionCost": 1899.99,
+  "manufacturer": "Lenovo",
+  "vendor": "Lenovo Direct",
+  "condition": "NEW",
+  "location": "HQ - Floor 3",
+  "isBookable": true,
+  "warrantyExpiry": "2029-06-01",
+  "remarks": "Standard developer workstation"
+}
+```
+
+---
+
+### 3. Get Asset Details
+- **Endpoint:** `GET /api/assets/:id`
+- **Access:** Protected (All Roles; DEPARTMENT_HEAD scope checked)
+- **Description:** Fetches specifications, uploader details, documents, manual transition history, and audit log action entries for a single asset.
+
+---
+
+### 4. Edit Asset details
+- **Endpoint:** `PUT /api/assets/:id`
+- **Access:** Protected (ADMIN and ASSET_MANAGER Only)
+
+---
+
+### 5. Duplicate Asset
+- **Endpoint:** `POST /api/assets/:id/duplicate`
+- **Access:** Protected (ADMIN and ASSET_MANAGER Only)
+- **Description:** Creates a duplicate asset. Resets serial number, duplicates core properties, sets status to `AVAILABLE` and generates a new sequential tag and QR code.
+
+---
+
+### 6. Change Lifecycle Status
+- **Endpoint:** `PATCH /api/assets/:id/status`
+- **Access:** Protected (ADMIN and ASSET_MANAGER Only)
+- **Description:** Adjusts the asset's lifecycle status. Transition must follow the matrix rules or it will reject with a 400 error.
+
+#### Request Body
+```json
+{
+  "toStatus": "UNDER_MAINTENANCE",
+  "reason": "Keyboard key failure"
+}
+```
+
+---
+
+### 7. Soft Delete Asset
+- **Endpoint:** `DELETE /api/assets/:id`
+- **Access:** Protected (ADMIN and ASSET_MANAGER Only)
+- **Description:** Marks the asset as soft-deleted. The action is blocked unless the asset status is currently `AVAILABLE`.
+
+---
+
+### 8. Upload Document/Photo
+- **Endpoint:** `POST /api/assets/:id/documents`
+- **Access:** Protected (ADMIN and ASSET_MANAGER Only)
+- **Format:** Multipart Form Data (`file` key)
+- **Description:** Uploads a file (under 5MB limit, JPEG/PNG/WEBP/PDF) to local server disk and attaches it as a document.
+
+---
+
+### 9. Get QR Code PNG
+- **Endpoint:** `GET /api/assets/:id/qr`
+- **Access:** Protected (All Roles; DEPARTMENT_HEAD scope checked)
+- **Description:** Streams the PNG QR image directly for printing or downloading.
+

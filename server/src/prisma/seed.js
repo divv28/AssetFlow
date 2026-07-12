@@ -100,8 +100,12 @@ async function main() {
     seededDepartments[dept.code] = dept;
   }
 
-  // Set IT Department Head as Asset Manager User for demo, and HR Department Head
-  // Re-verify IT Department Head assignment
+  // Clear all department heads first to avoid unique constraint collisions during seed reruns
+  await prisma.department.updateMany({
+    data: { headId: null }
+  });
+
+  // Set IT Department Head as Asset Manager User for demo
   await prisma.department.update({
     where: { id: seededDepartments['IT'].id },
     data: {
@@ -125,6 +129,7 @@ async function main() {
     { name: 'Office Chairs & Furniture', description: 'Ergonomic chairs and desks', warrantyMonths: 60, depreciationYears: 10 },
   ];
 
+  let chairCat;
   for (const c of categoriesToSeed) {
     const cat = await prisma.category.upsert({
       where: { name: c.name },
@@ -132,7 +137,89 @@ async function main() {
       create: c,
     });
     console.log(`Seeded category: ${cat.name}`);
+    if (cat.name === 'Office Chairs & Furniture') {
+      chairCat = cat;
+    }
   }
+
+  // 4. Create Sample Assets
+  console.log('Seeding sample assets...');
+  const laptopCat = await prisma.category.findFirst({ where: { name: 'Laptops & Workstations' } });
+  const monitorCat = await prisma.category.findFirst({ where: { name: 'Monitors & Displays' } });
+
+  const itDept = await prisma.department.findFirst({ where: { code: 'IT' } });
+  const hrDept = await prisma.department.findFirst({ where: { code: 'HR' } });
+  const adminUser = await prisma.user.findFirst({ where: { email: 'admin@assetflow.com' } });
+
+  const assetsToSeed = [
+    {
+      assetTag: 'AF-0001',
+      name: 'MacBook Pro 16" M3 Max',
+      categoryId: laptopCat.id,
+      departmentId: itDept.id,
+      serialNumber: 'SN-MBP-M3-9992',
+      qrCode: 'AF-QR-AF-0001-XYZ12',
+      acquisitionDate: new Date('2026-01-10'),
+      acquisitionCost: 3499.00,
+      manufacturer: 'Apple Inc.',
+      vendor: 'Apple Business Manager',
+      condition: 'NEW',
+      location: 'HQ - Floor 4',
+      isBookable: false,
+      warrantyExpiry: new Date('2029-01-10'),
+      status: 'AVAILABLE',
+      createdBy: adminUser.uuid,
+    },
+    {
+      assetTag: 'AF-0002',
+      name: 'Dell UltraSharp U2723QE',
+      categoryId: monitorCat.id,
+      departmentId: itDept.id,
+      serialNumber: 'SN-DELL-U27-3829',
+      qrCode: 'AF-QR-AF-0002-ABC45',
+      acquisitionDate: new Date('2026-02-15'),
+      acquisitionCost: 649.99,
+      manufacturer: 'Dell Technologies',
+      vendor: 'CDW Corporation',
+      condition: 'GOOD',
+      location: 'HQ - Floor 4',
+      isBookable: true,
+      warrantyExpiry: new Date('2028-02-15'),
+      status: 'AVAILABLE',
+      createdBy: adminUser.uuid,
+    },
+    {
+      assetTag: 'AF-0003',
+      name: 'Steelcase Gesture Ergonomic Chair',
+      categoryId: chairCat.id,
+      departmentId: hrDept.id,
+      serialNumber: 'SN-STEEL-CHAIR-11',
+      qrCode: 'AF-QR-AF-0003-DEF78',
+      acquisitionDate: new Date('2026-03-01'),
+      acquisitionCost: 1299.00,
+      manufacturer: 'Steelcase',
+      vendor: 'Steelcase Direct',
+      condition: 'NEW',
+      location: 'HQ - Floor 2',
+      isBookable: false,
+      warrantyExpiry: new Date('2036-03-01'),
+      status: 'AVAILABLE',
+      createdBy: adminUser.uuid,
+    },
+  ];
+
+  for (const a of assetsToSeed) {
+    const asset = await prisma.asset.upsert({
+      where: { assetTag: a.assetTag },
+      update: a,
+      create: a,
+    });
+    console.log(`Seeded asset: ${asset.name} (${asset.assetTag})`);
+  }
+
+  // Advance Postgres sequence counter to 3 so next asset registered automatically gets AF-0004
+  await prisma.$executeRawUnsafe("SELECT setval('asset_tag_seq', 3);");
+  console.log('Postgres sequence asset_tag_seq set to 3');
 
   console.log('Database seeding completed successfully.');
 }

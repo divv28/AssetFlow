@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes.js';
 import departmentRoutes from './routes/department.routes.js';
 import categoryRoutes from './routes/category.routes.js';
 import employeeRoutes from './routes/employee.routes.js';
+import assetRoutes from './routes/asset.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ApiResponse } from './utils/apiResponse.js';
 
@@ -40,6 +41,7 @@ const authLimiter = rateLimit({
 app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: '16kb' }));
 app.use(cookieParser());
+app.use('/uploads', express.static('uploads'));
 
 // Apply rate limiting specifically to authentication routes
 app.use('/api/auth', authLimiter);
@@ -49,6 +51,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/assets', assetRoutes);
 
 // Health Check Route
 app.get('/health', (req, res) => {

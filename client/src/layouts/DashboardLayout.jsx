@@ -45,7 +45,7 @@ export const DashboardLayout = ({ children, title = '', breadcrumbs = [] }) => {
   const sidebarLinks = [
     { label: 'Dashboard', path: '/dashboard', icon: Layers, enabled: true },
     { label: 'Organization Setup', path: '/organization-setup', icon: Settings, enabled: isAdmin },
-    { label: 'Assets', path: '#', icon: Database, enabled: false },
+    { label: 'Assets', path: '/assets', icon: Database, enabled: true },
     { label: 'Allocation & Transfer', path: '#', icon: ShieldCheck, enabled: false },
     { label: 'Resource Booking', path: '#', icon: Calendar, enabled: false },
     { label: 'Maintenance', path: '#', icon: Wrench, enabled: false },
