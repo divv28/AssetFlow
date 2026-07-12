@@ -111,6 +111,38 @@ export const OrgSetup = () => {
     },
   });
 
+  // Fetch selected employee allocations
+  const { data: empAllocations } = useQuery({
+    queryKey: ['emp-allocations', selectedEmp?.uuid],
+    queryFn: async () => {
+      const res = await api.get('/api/allocations', { params: { employeeId: selectedEmp.uuid, limit: 5 } });
+      return res.data.data;
+    },
+    enabled: !!selectedEmp?.uuid && isEmpDrawerOpen,
+  });
+
+  // Fetch selected employee transfers
+  const { data: empTransfers } = useQuery({
+    queryKey: ['emp-transfers', selectedEmp?.uuid],
+    queryFn: async () => {
+      const res = await api.get('/api/allocations/transfers', { params: { limit: 5 } });
+      const list = res.data.data || [];
+      return list.filter(t => t.requestedById === selectedEmp.uuid || t.requestedToId === selectedEmp.uuid);
+    },
+    enabled: !!selectedEmp?.uuid && isEmpDrawerOpen,
+  });
+
+  // Fetch selected employee returns
+  const { data: empReturns } = useQuery({
+    queryKey: ['emp-returns', selectedEmp?.uuid],
+    queryFn: async () => {
+      const res = await api.get('/api/allocations/returns', { params: { limit: 5 } });
+      const list = res.data.data || [];
+      return list.filter(r => r.requestedById === selectedEmp.uuid);
+    },
+    enabled: !!selectedEmp?.uuid && isEmpDrawerOpen,
+  });
+
   // List Categories
   const { data: catsData, isLoading: isCatsLoading } = useQuery({
     queryKey: ['categories', catPage, catSearch, catSort, catOrder],
@@ -929,6 +961,62 @@ export const OrgSetup = () => {
                     {new Date(selectedEmp.createdAt).toLocaleDateString()}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Scoped Allocations & Requests Sections */}
+            <div className="space-y-4 pt-4 border-t border-odoo-border text-xs">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-odoo-textSecondary">Allocated Assets & Requests</h4>
+              
+              {/* Allocated Assets */}
+              <div className="bg-white border border-odoo-border rounded-xl p-3.5 space-y-1.5 shadow-sm">
+                <span className="font-bold text-odoo-textPrimary block">Currently Allocated Assets ({empAllocations?.length || 0})</span>
+                {empAllocations && empAllocations.length > 0 ? (
+                  <div className="space-y-1">
+                    {empAllocations.map(a => (
+                      <div key={a.id} className="flex justify-between items-center py-1 border-b border-gray-50 last:border-b-0">
+                        <span className="font-semibold text-odoo-textSecondary">{a.asset.name}</span>
+                        <StatusBadge type={a.status === 'ACTIVE' ? 'success' : 'danger'} label={a.status} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400 italic block">No active allocations.</span>
+                )}
+              </div>
+
+              {/* Transfer Requests */}
+              <div className="bg-white border border-odoo-border rounded-xl p-3.5 space-y-1.5 shadow-sm">
+                <span className="font-bold text-odoo-textPrimary block">Recent Transfer Requests ({empTransfers?.length || 0})</span>
+                {empTransfers && empTransfers.length > 0 ? (
+                  <div className="space-y-1">
+                    {empTransfers.map(t => (
+                      <div key={t.id} className="flex justify-between items-center py-1 border-b border-gray-50 last:border-b-0">
+                        <span className="font-semibold text-odoo-textSecondary truncate max-w-[120px]">{t.asset.name}</span>
+                        <StatusBadge type={t.status === 'COMPLETED' ? 'success' : t.status === 'REQUESTED' ? 'warning' : 'danger'} label={t.status} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400 italic block">No transfer requests.</span>
+                )}
+              </div>
+
+              {/* Return Requests */}
+              <div className="bg-white border border-odoo-border rounded-xl p-3.5 space-y-1.5 shadow-sm">
+                <span className="font-bold text-odoo-textPrimary block">Recent Return Requests ({empReturns?.length || 0})</span>
+                {empReturns && empReturns.length > 0 ? (
+                  <div className="space-y-1">
+                    {empReturns.map(r => (
+                      <div key={r.id} className="flex justify-between items-center py-1 border-b border-gray-50 last:border-b-0">
+                        <span className="font-semibold text-odoo-textSecondary truncate max-w-[120px]">{r.asset.name}</span>
+                        <StatusBadge type={r.status === 'APPROVED' ? 'success' : r.status === 'REQUESTED' ? 'warning' : 'danger'} label={r.status} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-gray-400 italic block">No return requests.</span>
+                )}
               </div>
             </div>
 

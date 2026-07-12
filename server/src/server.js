@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
 import prisma from './config/db.js';
+import { initScheduler } from './utils/scheduler.js';
 
 // Load environment variables
 dotenv.config();
@@ -13,6 +14,9 @@ const startServer = async () => {
     // Validate database connection
     await prisma.$connect();
     console.log('Successfully connected to the PostgreSQL database.');
+
+    // Initialize daily overdue allocations checker
+    initScheduler();
 
     const server = app.listen(PORT, () => {
       console.log(`Server is running in ${process.env.NODE_ENV} mode on port ${PORT}`);
