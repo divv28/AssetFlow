@@ -5,7 +5,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import api from '../services/api';
 import { 
   Building2, Laptop, Users, Award, Shield, ShieldCheck,
-  Layers, Clock, ArrowRight, User, Calendar, Wrench
+  Layers, Clock, ArrowRight, User, Calendar, Wrench, FileText, Bell
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
