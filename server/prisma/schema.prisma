@@ -26,10 +26,71 @@ model User {
   email        String     @unique
   password     String
   role         Role       @default(EMPLOYEE)
-  departmentId String? // Optional department field (Phase 1)
+  
+  departmentId String? // FK to Department
+  department   Department? @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  
   status       UserStatus @default(ACTIVE)
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  // Back relations
+  headedDepartment   Department? @relation("DepartmentHead")
+  createdDepartments Department[] @relation("DepartmentCreator")
+  auditLogs          AuditLog[]
+
   @@map("users")
+}
+
+model Department {
+  id                 String       @id @default(uuid())
+  name               String       @unique
+  code               String       @unique
+  description        String?
+  
+  parentDepartmentId String?
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id])
+  childDepartments   Department[] @relation("DepartmentHierarchy")
+  
+  headId             String?      @unique
+  head               User?        @relation("DepartmentHead", fields: [headId], references: [uuid])
+  
+  status             UserStatus   @default(ACTIVE)
+  
+  createdById        String?
+  creator            User?        @relation("DepartmentCreator", fields: [createdById], references: [uuid])
+  
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?    // Soft delete marker
+
+  employees          User[]       @relation("DepartmentEmployees")
+
+  @@map("departments")
+}
+
+model Category {
+  id                String     @id @default(uuid())
+  name              String     @unique
+  description       String?
+  warrantyMonths    Int        @default(0)
+  depreciationYears Int        @default(0)
+  status            UserStatus @default(ACTIVE)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@map("categories")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [uuid])
+  action     String   // e.g. "DEPARTMENT_CREATED", "EMPLOYEE_PROMOTED"
+  entityType String   // e.g. "Department", "Category", "User"
+  entityId   String
+  metadata   Json     // before/after values or relevant details
+  createdAt  DateTime @default(now())
+
+  @@map("audit_logs")
 }

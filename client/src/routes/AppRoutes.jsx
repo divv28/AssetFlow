@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../pages/Login';
 import Signup from '../pages/Signup';
 import Dashboard from '../pages/Dashboard';
+import OrgSetup from '../pages/OrgSetup';
 import PrivateRoute from './PrivateRoute';
 import PublicRoute from './PublicRoute';
 
@@ -33,6 +34,14 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/organization-setup"
+        element={
+          <PrivateRoute allowedRoles={['ADMIN']}>
+            <OrgSetup />
           </PrivateRoute>
         }
       />
