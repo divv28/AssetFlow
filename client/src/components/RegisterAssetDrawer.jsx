@@ -37,6 +37,7 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
 
   // Local state for file attachments during creation
   const [selectedFile, setSelectedFile] = useState(null);
+  const [serverError, setServerError] = useState(null);
 
   // Fetch Categories for selection
   const { data: categories } = useQuery({
@@ -129,6 +130,7 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
         remarks: '',
       });
       setSelectedFile(null);
+      setServerError(null);
     } else if (user?.role === 'DEPARTMENT_HEAD' && user?.departmentId) {
       setValue('departmentId', user.departmentId);
     }
@@ -137,6 +139,7 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
   // Create Mutation
   const createMutation = useMutation({
     mutationFn: async (formData) => {
+      setServerError(null);
       const res = await api.post('/api/assets', formData);
       const newAsset = res.data.data;
 
@@ -152,19 +155,23 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
       return newAsset;
     },
     onSuccess: (data) => {
-      addToast('success', `Asset ${data.assetTag} successfully registered!`);
+      addToast('success', `Asset ${data.assetTag} registered successfully!`);
       queryClient.invalidateQueries({ queryKey: ['assets'] });
       onSuccess(data);
       onClose();
     },
     onError: (err) => {
-      addToast('error', err.response?.data?.message || 'Failed to register asset');
+      const msg = err.response?.data?.message || 'Failed to register asset';
+      const errors = err.response?.data?.errors;
+      setServerError({ message: msg, errors });
+      addToast('error', msg);
     },
   });
 
   // Edit Mutation
   const editMutation = useMutation({
     mutationFn: async (formData) => {
+      setServerError(null);
       const res = await api.put(`/api/assets/${assetId}`, formData);
       return res.data.data;
     },
@@ -176,12 +183,16 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
       onClose();
     },
     onError: (err) => {
-      addToast('error', err.response?.data?.message || 'Failed to update asset');
+      const msg = err.response?.data?.message || 'Failed to update asset';
+      const errors = err.response?.data?.errors;
+      setServerError({ message: msg, errors });
+      addToast('error', msg);
     },
   });
 
   const onSubmit = (data) => {
-    // Sanitize empty strings
+    setServerError(null);
+    // Sanitize empty strings to null
     const sanitized = {
       ...data,
       departmentId: data.departmentId || null,
@@ -265,9 +276,13 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
               <div>
                 <label className="block text-xs font-bold text-odoo-textSecondary mb-1 uppercase">Department</label>
                 {user?.role === 'DEPARTMENT_HEAD' ? (
-                  <div className="w-full px-3 py-2 bg-odoo-bg border border-odoo-border rounded-lg text-sm text-odoo-textPrimary font-bold">
-                    {departments?.find(d => d.id === user.departmentId)?.name || 'Loading department...'}
-                  </div>
+                  <>
+                    <div className="w-full px-3 py-2 bg-odoo-bg border border-odoo-border rounded-lg text-sm text-odoo-textPrimary font-bold">
+                      {departments?.find(d => d.id === user.departmentId)?.name || 'Your Department (auto-assigned)'}
+                    </div>
+                    {/* Hidden input ensures departmentId is always submitted */}
+                    <input type="hidden" {...register('departmentId')} value={user.departmentId || ''} />
+                  </>
                 ) : (
                   <select
                     className="w-full px-3 py-2 bg-white border border-odoo-border rounded-lg text-sm focus-ring"
@@ -447,6 +462,27 @@ export const RegisterAssetDrawer = ({ isOpen, onClose, assetId = null, onSuccess
             {...register('remarks')}
           ></textarea>
         </div>
+
+        {/* Server Error Panel */}
+        {serverError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-2">
+            <div className="flex items-start gap-2">
+              <div className="w-4 h-4 mt-0.5 shrink-0 text-red-600">⚠</div>
+              <div>
+                <p className="text-xs font-bold text-red-700">{serverError.message}</p>
+                {serverError.errors && serverError.errors.length > 0 && (
+                  <ul className="mt-1 space-y-0.5">
+                    {serverError.errors.map((e, i) => (
+                      <li key={i} className="text-[11px] text-red-600">
+                        {typeof e === 'string' ? e : e.message || JSON.stringify(e)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Fixed Footer Buttons */}
         <div className="fixed bottom-0 right-0 max-w-md w-full bg-white border-t border-odoo-border p-4 flex gap-3 z-10 shrink-0">

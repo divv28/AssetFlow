@@ -274,12 +274,84 @@ class EmployeeService {
    * Retrieve counts for dashboard metrics.
    */
   async getDashboardStats() {
-    const [totalDepartments, totalCategories, totalEmployees, departmentHeads, assetManagers] = await Promise.all([
+    const today = new Date();
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const [
+      totalDepartments, totalCategories, totalEmployees, departmentHeads, assetManagers,
+      activeAllocations, pendingTransfers, overdueReturns, assetsDueToday, recentAllocations,
+      resourcesBookedToday, availableResources, pendingMaintenance, assetsUnderMaintenance, maintenanceCompletedToday
+    ] = await Promise.all([
       prisma.department.count({ where: { deletedAt: null } }),
       prisma.category.count({}),
       prisma.user.count({}),
       prisma.user.count({ where: { role: 'DEPARTMENT_HEAD', status: 'ACTIVE' } }),
       prisma.user.count({ where: { role: 'ASSET_MANAGER', status: 'ACTIVE' } }),
+      prisma.allocation.count({ where: { status: 'ACTIVE' } }),
+      prisma.transferRequest.count({ where: { status: 'REQUESTED' } }),
+      prisma.allocation.count({
+        where: {
+          OR: [
+            { status: 'OVERDUE' },
+            {
+              status: 'ACTIVE',
+              expectedReturnDate: { lt: new Date() }
+            }
+          ]
+        }
+      }),
+      prisma.allocation.count({
+        where: {
+          status: 'ACTIVE',
+          expectedReturnDate: {
+            gte: startOfToday,
+            lte: endOfToday,
+          }
+        }
+      }),
+      prisma.allocation.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          asset: { select: { name: true, assetTag: true } },
+          employee: { select: { name: true } },
+        }
+      }),
+      prisma.booking.count({
+        where: {
+          status: { in: ['UPCOMING', 'ONGOING'] },
+          startDateTime: { lte: endOfToday },
+          endDateTime: { gte: startOfToday },
+        }
+      }),
+      prisma.resource.count({
+        where: {
+          status: 'ACTIVE',
+          bookable: true,
+        }
+      }),
+      prisma.maintenanceRequest.count({
+        where: {
+          status: 'PENDING',
+        }
+      }),
+      prisma.asset.count({
+        where: {
+          status: 'UNDER_MAINTENANCE',
+        }
+      }),
+      prisma.maintenanceRequest.count({
+        where: {
+          status: 'RESOLVED',
+          completedAt: {
+            gte: startOfToday,
+            lte: endOfToday,
+          }
+        }
+      })
     ]);
 
     return {
@@ -288,6 +360,16 @@ class EmployeeService {
       totalEmployees,
       departmentHeads,
       assetManagers,
+      activeAllocations,
+      pendingTransfers,
+      overdueReturns,
+      assetsDueToday,
+      recentAllocations,
+      resourcesBookedToday,
+      availableResources,
+      pendingMaintenance,
+      assetsUnderMaintenance,
+      maintenanceCompletedToday,
     };
   }
 }

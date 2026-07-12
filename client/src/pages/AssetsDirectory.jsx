@@ -32,6 +32,9 @@ export const AssetsDirectory = () => {
   const [allocateTargetAsset, setAllocateTargetAsset] = useState(null);
   const [allocateTargetEmployeeId, setAllocateTargetEmployeeId] = useState('');
   const [allocateReason, setAllocateReason] = useState('');
+  const [allocateExpectedReturn, setAllocateExpectedReturn] = useState('');
+  const [allocateCondition, setAllocateCondition] = useState('NEW');
+  const [allocateDepartmentId, setAllocateDepartmentId] = useState('');
 
   // State Management
   const [searchParams, setSearchParams] = useSearchParams();
@@ -244,30 +247,57 @@ export const AssetsDirectory = () => {
     enabled: isAllocateOpen,
   });
 
-  // Allocation mutation
+  // Allocation mutation — calls full POST /api/allocations to create proper Allocation record
   const allocateMutation = useMutation({
-    mutationFn: async ({ id, allocatedToId, reason }) => {
-      const res = await api.patch(`/api/assets/${id}/allocate`, { allocatedToId, reason });
+    mutationFn: async ({ assetId, employeeId, departmentId, expectedReturnDate, conditionAtAllocation, remarks }) => {
+      const res = await api.post('/api/allocations', {
+        assetId,
+        employeeId,
+        departmentId,
+        expectedReturnDate: expectedReturnDate || null,
+        conditionAtAllocation,
+        remarks,
+      });
       return res.data.data;
     },
-    onSuccess: (data) => {
-      addToast('success', data.allocatedToId ? 'Asset successfully distributed' : 'Asset successfully returned to inventory');
+    onSuccess: () => {
+      addToast('success', 'Asset successfully allocated! Allocation record created.');
       queryClient.invalidateQueries({ queryKey: ['assets'] });
+      queryClient.invalidateQueries({ queryKey: ['allocations'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       setIsAllocateOpen(false);
       setAllocateTargetAsset(null);
       setAllocateTargetEmployeeId('');
       setAllocateReason('');
+      setAllocateExpectedReturn('');
+      setAllocateCondition('NEW');
+      setAllocateDepartmentId('');
     },
     onError: (err) => {
-      addToast('error', err.response?.data?.message || 'Failed to distribute asset');
+      addToast('error', err.response?.data?.message || 'Failed to allocate asset');
     },
   });
+
+  // Auto-populate department from selected employee
+  const handleAllocateEmployeeChange = (employeeId) => {
+    setAllocateTargetEmployeeId(employeeId);
+    if (employeeId && employees) {
+      const emp = employees.find(e => e.uuid === employeeId);
+      if (emp?.departmentId) setAllocateDepartmentId(emp.departmentId);
+      else setAllocateDepartmentId('');
+    } else {
+      setAllocateDepartmentId('');
+    }
+  };
 
   // Action Triggers
   const handleDistributeClick = (asset) => {
     setAllocateTargetAsset(asset);
     setAllocateTargetEmployeeId('');
     setAllocateReason('');
+    setAllocateExpectedReturn('');
+    setAllocateCondition(asset.condition || 'NEW');
+    setAllocateDepartmentId('');
     setIsAllocateOpen(true);
     setActiveActionsDropdown(null);
   };
@@ -287,8 +317,10 @@ export const AssetsDirectory = () => {
   };
 
   const handleRegisterSuccess = (newAsset) => {
-    // If successfully registered, highlight and redirect
-    navigate(`/assets/${newAsset.id}`);
+    // Stay on directory — the query is already invalidated by the drawer mutation
+    // Just show the new asset highlighted via URL param
+    queryClient.invalidateQueries({ queryKey: ['assets'] });
+    addToast('success', `Asset ${newAsset.assetTag} registered! It now appears in the directory.`);
   };
 
   const handleEditClick = (asset) => {
@@ -965,14 +997,15 @@ export const AssetsDirectory = () => {
       {isAllocateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/45 backdrop-blur-sm" onClick={() => setIsAllocateOpen(false)}></div>
-          <div className="relative bg-white border border-odoo-border rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 animate-scale-in">
+          <div className="relative bg-white border border-odoo-border rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 animate-scale-in max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-bold text-odoo-textPrimary">
               Distribute Asset to Employee
             </h3>
             
             <div className="bg-odoo-bg border border-odoo-border rounded-lg p-3 text-xs text-odoo-textSecondary">
-              <span className="block font-bold text-odoo-textPrimary">Asset Details:</span>
-              <span>{allocateTargetAsset?.name} ({allocateTargetAsset?.assetTag})</span>
+              <span className="block font-bold text-odoo-textPrimary">Asset:</span>
+              <span className="font-mono text-primary font-bold">{allocateTargetAsset?.assetTag}</span>
+              <span className="ml-2">{allocateTargetAsset?.name}</span>
             </div>
 
             <div className="space-y-3">
@@ -980,28 +1013,60 @@ export const AssetsDirectory = () => {
                 <label className="block text-xs font-bold text-odoo-textSecondary mb-1.5 uppercase">Select Active Employee *</label>
                 <select
                   value={allocateTargetEmployeeId}
-                  onChange={(e) => setAllocateTargetEmployeeId(e.target.value)}
+                  onChange={(e) => handleAllocateEmployeeChange(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-odoo-border rounded-lg text-sm focus-ring text-odoo-textPrimary font-semibold"
                 >
                   <option value="">Choose Employee</option>
                   {employees?.map(emp => (
                     <option key={emp.uuid} value={emp.uuid}>
-                      {emp.name} ({emp.email}) {emp.department ? `- ${emp.department.name}` : ''}
+                      {emp.name} — {emp.email} {emp.department ? `(${emp.department.name})` : ''}
                     </option>
                   ))}
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-odoo-textSecondary mb-1.5 uppercase">Asset Condition *</label>
+                  <select
+                    value={allocateCondition}
+                    onChange={(e) => setAllocateCondition(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-odoo-border rounded-lg text-sm focus-ring"
+                  >
+                    <option value="NEW">New</option>
+                    <option value="GOOD">Good</option>
+                    <option value="FAIR">Fair</option>
+                    <option value="POOR">Poor</option>
+                    <option value="DAMAGED">Damaged</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-odoo-textSecondary mb-1.5 uppercase">Expected Return</label>
+                  <input
+                    type="date"
+                    value={allocateExpectedReturn}
+                    onChange={(e) => setAllocateExpectedReturn(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-odoo-border rounded-lg text-sm focus-ring"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-bold text-odoo-textSecondary mb-1.5 uppercase">Allocation Reason / Remarks *</label>
+                <label className="block text-xs font-bold text-odoo-textSecondary mb-1.5 uppercase">Reason / Remarks</label>
                 <textarea
-                  rows="3"
-                  placeholder="Specify notes or allocation purpose..."
+                  rows="2"
+                  placeholder="Specify allocation purpose or notes..."
                   value={allocateReason}
                   onChange={(e) => setAllocateReason(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-odoo-border rounded-lg text-sm focus-ring"
                 ></textarea>
               </div>
+
+              {!allocateDepartmentId && allocateTargetEmployeeId && (
+                <p className="text-xs text-red-500 font-semibold">
+                  ⚠️ Selected employee is not assigned to any department. Please assign them a department first.
+                </p>
+              )}
             </div>
 
             <div className="flex gap-3 pt-2 shrink-0">
@@ -1014,14 +1079,18 @@ export const AssetsDirectory = () => {
               </button>
               <button
                 type="button"
-                disabled={!allocateTargetEmployeeId || !allocateReason.trim() || allocateMutation.isPending}
+                disabled={!allocateTargetEmployeeId || !allocateDepartmentId || allocateMutation.isPending}
                 onClick={() => allocateMutation.mutate({
-                  id: allocateTargetAsset.id,
-                  allocatedToId: allocateTargetEmployeeId,
-                  reason: allocateReason.trim()
+                  assetId: allocateTargetAsset.id,
+                  employeeId: allocateTargetEmployeeId,
+                  departmentId: allocateDepartmentId,
+                  expectedReturnDate: allocateExpectedReturn || null,
+                  conditionAtAllocation: allocateCondition,
+                  remarks: allocateReason.trim() || null,
                 })}
-                className="flex-1 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                className="flex-1 py-2 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
+                {allocateMutation.isPending && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
                 Allocate Asset
               </button>
             </div>

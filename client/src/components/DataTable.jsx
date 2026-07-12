@@ -15,6 +15,23 @@ export const DataTable = ({
   totalCount = 0,
   limit = 20,
 }) => {
+  // Normalize column definitions to support both:
+  // 1. key / label / render / sortable (Phase 2 style)
+  // 2. sortBy / header / accessor (Phase 3/4 style)
+  const normalizedColumns = columns.map((col, idx) => {
+    const key = col.key || col.sortBy || col.header || `col-${idx}`;
+    const label = col.label || col.header || '';
+    const sortable = col.sortable || !!col.sortBy;
+    const render = col.render || col.accessor;
+    return {
+      key,
+      label,
+      sortable,
+      render,
+      className: col.className || '',
+    };
+  });
+
   const handleSort = (key, sortable) => {
     if (!sortable) return;
     const nextOrder = sortBy === key && sortOrder === 'asc' ? 'desc' : 'asc';
@@ -32,7 +49,7 @@ export const DataTable = ({
           {/* Sticky Header */}
           <thead className="bg-odoo-bg text-odoo-textSecondary font-bold text-xs uppercase tracking-wider sticky top-0 z-10 border-b border-odoo-border">
             <tr>
-              {columns.map((col) => (
+              {normalizedColumns.map((col) => (
                 <th
                   key={col.key}
                   onClick={() => handleSort(col.key, col.sortable)}
@@ -59,13 +76,13 @@ export const DataTable = ({
           <tbody className="divide-y divide-odoo-border bg-white text-odoo-textPrimary">
             {isLoading ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-8">
+                <td colSpan={normalizedColumns.length} className="px-6 py-8">
                   <LoadingSkeleton count={4} />
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-6 py-12 text-center text-odoo-textSecondary">
+                <td colSpan={normalizedColumns.length} className="px-6 py-12 text-center text-odoo-textSecondary">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <span className="text-3xl">📭</span>
                     <p className="font-medium text-sm">No records found matching current criteria.</p>
@@ -78,7 +95,7 @@ export const DataTable = ({
                   key={item.id || item.uuid || index}
                   className="hover:bg-odoo-bg/50 transition-colors group"
                 >
-                  {columns.map((col) => (
+                  {normalizedColumns.map((col) => (
                     <td key={col.key} className={`px-6 py-3.5 whitespace-nowrap ${col.className || ''}`}>
                       {col.render ? col.render(item, index) : item[col.key]}
                     </td>

@@ -8,6 +8,10 @@ import departmentRoutes from './routes/department.routes.js';
 import categoryRoutes from './routes/category.routes.js';
 import employeeRoutes from './routes/employee.routes.js';
 import assetRoutes from './routes/asset.routes.js';
+import allocationRoutes from './routes/allocation.routes.js';
+import resourceRoutes from './routes/resource.routes.js';
+import bookingRoutes from './routes/booking.routes.js';
+import maintenanceRoutes from './routes/maintenance.routes.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ApiResponse } from './utils/apiResponse.js';
 
@@ -20,10 +24,22 @@ app.use(
   cors({
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
+
+// Request logger (dev mode)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, _res, next) => {
+    if (req.path.startsWith('/api')) {
+      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`, 
+        Object.keys(req.body || {}).length ? `body keys: ${Object.keys(req.body).join(', ')}` : ''
+      );
+    }
+    next();
+  });
+}
 
 // Rate Limiter
 const authLimiter = rateLimit({
@@ -52,6 +68,10 @@ app.use('/api/departments', departmentRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/assets', assetRoutes);
+app.use('/api/allocations', allocationRoutes);
+app.use('/api/resources', resourceRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
 
 // Health Check Route
 app.get('/health', (req, res) => {

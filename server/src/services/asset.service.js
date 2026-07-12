@@ -36,26 +36,36 @@ class AssetService {
     }
 
     // Access Scoping Checks
+    // Use AND array to stack multiple OR groups without overwriting
+    if (!where.AND) where.AND = [];
+
     if (user.role === 'DEPARTMENT_HEAD') {
       if (!user.departmentId) {
-        // Department Head must belong to a department to see anything
         return { data: [], meta: { page, limit, total: 0, totalPages: 0 } };
       }
-      where.departmentId = user.departmentId;
-    } else if (user.role === 'EMPLOYEE') {
-      // Standard employee can view read-only.
-      // Scoping to assets currently allocated to them will arrive in Phase 5.
-      // For now, they can view the directory.
+      // Dept head sees their dept's assets AND global (null dept) assets
+      where.AND.push({
+        OR: [
+          { departmentId: user.departmentId },
+          { departmentId: null },
+        ],
+      });
     }
+    // EMPLOYEE and ADMIN/ASSET_MANAGER see all assets (no extra scope)
 
-    // Category / Department / Status / Bookable Filters
+    // Category / Status / Condition / Bookable Filters (scalar fields — safe to set directly)
     if (query.categoryId) where.categoryId = query.categoryId;
-    if (query.departmentId) where.departmentId = query.departmentId;
     if (query.status) where.status = query.status;
     if (query.condition) where.condition = query.condition;
-    
+
     if (query.isBookable !== undefined && query.isBookable !== '') {
       where.isBookable = query.isBookable === 'true' || query.isBookable === true;
+    }
+
+    // Department filter (only applied for roles that can see all departments)
+    // For DEPT_HEAD, the scope is already set above — ignore frontend dept filter
+    if (query.departmentId && user.role !== 'DEPARTMENT_HEAD') {
+      where.departmentId = query.departmentId;
     }
 
     // Advanced Filters Drawer
@@ -96,20 +106,25 @@ class AssetService {
       if (warrantyEnd) where.warrantyExpiry.lte = warrantyEnd;
     }
 
-    // Search Filter (Debounced)
+    // Search Filter — pushed into AND to avoid overwriting dept-head OR
     if (query.search) {
       const search = query.search.trim();
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { assetTag: { contains: search, mode: 'insensitive' } },
-        { serialNumber: { contains: search, mode: 'insensitive' } },
-        { manufacturer: { contains: search, mode: 'insensitive' } },
-        { location: { contains: search, mode: 'insensitive' } },
-        { qrCode: { contains: search, mode: 'insensitive' } },
-        { category: { name: { contains: search, mode: 'insensitive' } } },
-        { department: { name: { contains: search, mode: 'insensitive' } } },
-      ];
+      where.AND.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { assetTag: { contains: search, mode: 'insensitive' } },
+          { serialNumber: { contains: search, mode: 'insensitive' } },
+          { manufacturer: { contains: search, mode: 'insensitive' } },
+          { location: { contains: search, mode: 'insensitive' } },
+          { qrCode: { contains: search, mode: 'insensitive' } },
+          { category: { name: { contains: search, mode: 'insensitive' } } },
+          { department: { name: { contains: search, mode: 'insensitive' } } },
+        ],
+      });
     }
+
+    // Clean up empty AND array to avoid Prisma error
+    if (where.AND.length === 0) delete where.AND;
 
     // Query DB
     const [assets, totalCount] = await Promise.all([

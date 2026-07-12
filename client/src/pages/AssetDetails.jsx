@@ -71,6 +71,24 @@ export const AssetDetails = () => {
     },
   });
 
+  // Fetch asset allocation history timeline
+  const { data: allocationHistory } = useQuery({
+    queryKey: ['asset-allocation-history', id],
+    queryFn: async () => {
+      const res = await api.get('/api/allocations/history', { params: { assetId: id } });
+      return res.data.data;
+    },
+  });
+
+  // Fetch asset maintenance history
+  const { data: maintenanceRequests } = useQuery({
+    queryKey: ['asset-maintenance-history', id],
+    queryFn: async () => {
+      const res = await api.get('/api/maintenance', { params: { assetId: id } });
+      return res.data.data;
+    },
+  });
+
   // Fetch employees list
   const { data: employees } = useQuery({
     queryKey: ['employees-allocation-list-details', user?.departmentId],
@@ -473,25 +491,115 @@ export const AssetDetails = () => {
             </div>
           )}
 
-          {/* Allocation History Placeholder */}
+          {/* Allocation History Tab */}
           {activeTab === 'allocation' && (
-            <div className="flex flex-col items-center justify-center p-8 text-center space-y-2">
-              <User className="w-10 h-10 text-gray-300" />
-              <h4 className="text-xs font-bold text-odoo-textPrimary uppercase">No Allocation Records</h4>
-              <p className="text-xs text-odoo-textSecondary leading-relaxed max-w-sm">
-                Allocation history will populates automatically once the **Allocation & Transfer** module is shipped in Phase 5.
-              </p>
+            <div className="space-y-4 text-xs">
+              <h3 className="text-sm font-bold text-odoo-textPrimary uppercase border-b border-odoo-border pb-1">
+                Asset Allocation History
+              </h3>
+              
+              {asset.allocatedTo && (
+                <div className="bg-primary-light/5 border border-primary/20 p-4 rounded-xl flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                      {asset.allocatedTo.name.charAt(0)}
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-odoo-textSecondary block font-semibold uppercase">Current Holder</span>
+                      <span className="text-xs font-bold text-odoo-textPrimary">{asset.allocatedTo.name} ({asset.allocatedTo.email})</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-bold border border-emerald-200">
+                    Currently Assigned
+                  </span>
+                </div>
+              )}
+
+              {!allocationHistory || allocationHistory.length === 0 ? (
+                <div className="text-center py-8 text-odoo-textSecondary">
+                  <p className="text-xs font-semibold">No allocation events logged for this asset.</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-odoo-border pl-6 ml-3 space-y-4">
+                  {allocationHistory.map((evt) => {
+                    const isAlloc = evt.eventType === 'ALLOCATED';
+                    const isReturn = evt.eventType === 'RETURN_APPROVED';
+                    let dotColor = 'bg-primary';
+                    if (isAlloc) dotColor = 'bg-emerald-600';
+                    if (isReturn) dotColor = 'bg-orange-500';
+
+                    return (
+                      <div key={evt.id} className="relative text-xs text-odoo-textSecondary">
+                        <div className={`absolute -left-[30px] top-1 w-3 h-3 rounded-full border-2 border-white ${dotColor}`}></div>
+                        <div className="bg-odoo-bg border border-odoo-border rounded-lg p-3 space-y-1">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-odoo-textPrimary">{evt.eventType}</span>
+                            <span className="text-[10px] text-gray-400">{new Date(evt.createdAt).toLocaleString()}</span>
+                          </div>
+                          <div className="text-odoo-textSecondary">
+                            <span>Actor: <strong>{evt.actor.name}</strong> ({evt.actor.email})</span>
+                          </div>
+                          {evt.metadata && (
+                            <div className="text-[10px] text-gray-500 bg-white border border-odoo-border rounded p-1.5 mt-1 space-y-0.5 font-mono">
+                              {evt.metadata.employeeName && <div>Holder: {evt.metadata.employeeName}</div>}
+                              {evt.metadata.fromHolder && <div>From Holder: {evt.metadata.fromHolder}</div>}
+                              {evt.metadata.toHolder && <div>To Holder: {evt.metadata.toHolder}</div>}
+                              {evt.metadata.condition && <div>Condition: {evt.metadata.condition}</div>}
+                              {evt.metadata.notes && <div>Remarks: {evt.metadata.notes}</div>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
-          {/* Maintenance History Placeholder */}
+          {/* Maintenance History */}
           {activeTab === 'maintenance' && (
-            <div className="flex flex-col items-center justify-center p-8 text-center space-y-2">
-              <ShieldCheck className="w-10 h-10 text-gray-300" />
-              <h4 className="text-xs font-bold text-odoo-textPrimary uppercase">No Maintenance Records</h4>
-              <p className="text-xs text-odoo-textSecondary leading-relaxed max-w-sm">
-                Maintenance history logs will populate automatically once the **Maintenance** module is shipped in Phase 6.
-              </p>
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-odoo-textSecondary uppercase tracking-wider mb-2">Maintenance History Logs</h4>
+              {!maintenanceRequests || maintenanceRequests.length === 0 ? (
+                <div className="text-center py-12 text-odoo-textSecondary">
+                  <p className="text-xs font-semibold">No maintenance records logged for this asset.</p>
+                </div>
+              ) : (
+                <div className="relative border-l-2 border-odoo-border pl-6 ml-3 space-y-4">
+                  {maintenanceRequests.map((req) => {
+                    let dotColor = 'bg-primary';
+                    if (req.status === 'RESOLVED') dotColor = 'bg-green-600';
+                    if (req.status === 'PENDING') dotColor = 'bg-yellow-500';
+                    if (req.status === 'IN_PROGRESS') dotColor = 'bg-orange-500';
+                    if (req.status === 'REJECTED') dotColor = 'bg-red-500';
+
+                    return (
+                      <div key={req.id} className="relative text-xs text-odoo-textSecondary">
+                        <div className={`absolute -left-[30px] top-1.5 w-3 h-3 rounded-full border-2 border-white ${dotColor}`}></div>
+                        <div className="bg-odoo-bg border border-odoo-border rounded-lg p-4 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-odoo-textPrimary">
+                              {req.status.replace('_', ' ')}
+                            </span>
+                            <span className="text-[10px] text-gray-400">{new Date(req.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p className="text-odoo-textPrimary font-semibold">Issue: {req.description}</p>
+                          <div className="flex justify-between text-[10px] text-gray-400 mt-1 font-semibold">
+                            <span>Technician: {req.technician?.name || 'Unassigned'}</span>
+                            <span>Priority: {req.priority}</span>
+                          </div>
+                          {req.resolutionNotes && (
+                            <div className="bg-white p-2.5 rounded border border-odoo-border text-[10.5px] mt-1.5 font-semibold text-green-700">
+                              Resolution Notes: {req.resolutionNotes}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
