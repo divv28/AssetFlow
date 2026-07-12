@@ -2,6 +2,7 @@ import jwt from 'jsonwebtoken';
 import { ApiError } from '../utils/apiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import prisma from '../config/db.js';
+import { setContextUser } from './context.middleware.js';
 
 /**
  * Authentication middleware to verify JWT access tokens.
@@ -39,6 +40,7 @@ export const authenticateToken = asyncHandler(async (req, res, next) => {
     }
 
     req.user = user;
+    setContextUser(user);
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

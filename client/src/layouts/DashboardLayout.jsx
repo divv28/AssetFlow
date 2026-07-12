@@ -1,16 +1,98 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   LogOut, Layers, Settings, Database, Calendar, 
   Wrench, ShieldCheck, FileText, Bell, ChevronRight, Menu, X, Shield 
 } from 'lucide-react';
+import { io } from 'socket.io-client';
+import api from '../services/api';
 
 export const DashboardLayout = ({ children, title = '', breadcrumbs = [] }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef(null);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setIsNotifOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch initial notifications
+  const loadNotifications = async () => {
+    try {
+      const res = await api.get('/api/notifications?limit=5');
+      setNotifications(res.data.data || []);
+      
+      const unreadRes = await api.get('/api/notifications?read=false&limit=100');
+      setUnreadCount(unreadRes.data.pagination?.total || 0);
+    } catch (e) {
+      console.error('Failed to load notifications', e);
+    }
+  };
+
+  useEffect(() => {
+    if (user?.uuid) {
+      loadNotifications();
+
+      // Initialize Socket.IO connection
+      const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+        withCredentials: true,
+      });
+
+      // Register client
+      socket.emit('register', user.uuid);
+
+      // Listen for notification
+      socket.on('notification', (newNotif) => {
+        setNotifications((prev) => [newNotif, ...prev.slice(0, 4)]);
+        setUnreadCount((c) => c + 1);
+      });
+
+      return () => {
+        socket.disconnect();
+      };
+    }
+  }, [user]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.patch('/api/notifications/read-all');
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true, isRead: true })));
+    } catch (e) {
+      console.error('Failed to mark all read', e);
+    }
+  };
+
+  const handleNotifClick = async (notif) => {
+    try {
+      if (!notif.read) {
+        await api.patch(`/api/notifications/${notif.id}/read`);
+        setUnreadCount((c) => Math.max(0, c - 1));
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === notif.id ? { ...n, read: true, isRead: true } : n))
+        );
+      }
+      setIsNotifOpen(false);
+      if (notif.link) {
+        navigate(notif.link);
+      }
+    } catch (e) {
+      console.error('Failed to process notification click', e);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -49,9 +131,8 @@ export const DashboardLayout = ({ children, title = '', breadcrumbs = [] }) => {
     { label: 'Allocation & Transfer', path: '/allocations', icon: ShieldCheck, enabled: true },
     { label: 'Resource Booking', path: '/resource-booking', icon: Calendar, enabled: true },
     { label: 'Maintenance', path: '/maintenance', icon: Wrench, enabled: true },
-    { label: 'Audit', path: '#', icon: Shield, enabled: false },
-    { label: 'Reports', path: '#', icon: FileText, enabled: false },
-    { label: 'Notifications', path: '#', icon: Bell, enabled: false },
+    { label: 'Audit', path: '/audits', icon: Shield, enabled: true },
+    { label: 'Activity Logs', path: '/activity-logs', icon: FileText, enabled: isAdmin },
   ];
 
   const SidebarContent = () => (
@@ -192,6 +273,76 @@ export const DashboardLayout = ({ children, title = '', breadcrumbs = [] }) => {
               <span className={`text-[9px] font-extrabold px-2 py-0.5 mt-0.5 rounded-full border uppercase tracking-wider ${getRoleBadgeStyle(user?.role)}`}>
                 {formatRole(user?.role)}
               </span>
+            </div>
+
+            {/* Notification Bell Dropdown */}
+            <div className="relative flex items-center" ref={notifRef}>
+              <button
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                className="relative p-2 text-gray-500 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors focus-ring"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-0 right-0 w-4 h-4 bg-red-600 text-white rounded-full flex items-center justify-center text-[9px] font-bold shadow-sm animate-pulse">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {isNotifOpen && (
+                <div className="absolute right-0 mt-2 top-10 w-80 bg-white border border-odoo-border rounded-xl shadow-xl z-50 overflow-hidden divide-y divide-odoo-border">
+                  {/* Dropdown Header */}
+                  <div className="p-3 bg-gray-50 flex items-center justify-between">
+                    <span className="text-xs font-bold text-odoo-textPrimary">Recent Notifications</span>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-[10px] text-primary hover:underline font-bold"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Notifications List */}
+                  <div className="max-h-72 overflow-y-auto divide-y divide-odoo-border">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-odoo-textSecondary">
+                        No new notifications.
+                      </div>
+                    ) : (
+                      notifications.map((notif) => (
+                        <div
+                          key={notif.id}
+                          onClick={() => handleNotifClick(notif)}
+                          className={`p-3 text-left hover:bg-gray-50 cursor-pointer transition-colors space-y-1 ${
+                            !notif.read ? 'bg-primary-light/10 font-medium' : ''
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <span className={`text-[10.5px] font-bold ${
+                              !notif.read ? 'text-primary' : 'text-odoo-textPrimary'
+                            }`}>
+                              {notif.title}
+                            </span>
+                            <span className="text-[9px] text-gray-400 shrink-0 mt-0.5">
+                              {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-odoo-textSecondary leading-normal">
+                            {notif.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Dropdown Footer */}
+                  <div className="p-2.5 text-center bg-gray-50">
+                    <span className="text-[10.5px] text-gray-400 italic">Connected to Live Notification Feed</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <span className="border-l border-odoo-border h-6"></span>

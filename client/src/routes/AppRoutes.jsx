@@ -12,6 +12,8 @@ import ReturnRequests from '../pages/ReturnRequests';
 import AllocationHistory from '../pages/AllocationHistory';
 import ResourceBooking from '../pages/ResourceBooking';
 import MaintenanceBoard from '../pages/MaintenanceBoard';
+import AuditDirectory from '../pages/AuditDirectory';
+import ActivityTrail from '../pages/ActivityTrail';
 import PrivateRoute from './PrivateRoute';
 import PublicRoute from './PublicRoute';
 
@@ -114,6 +116,23 @@ export const AppRoutes = () => {
         element={
           <PrivateRoute>
             <MaintenanceBoard />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/audits"
+        element={
+          <PrivateRoute>
+            <AuditDirectory />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/activity-logs"
+        element={
+          <PrivateRoute allowedRoles={['ADMIN']}>
+            <ActivityTrail />
           </PrivateRoute>
         }
       />

@@ -42,6 +42,12 @@ model User {
   transfersRequested       TransferRequest[]    @relation("TransferRequester")
   transfersTargeted        TransferRequest[]    @relation("TransferTarget")
   department               Department?          @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  auditCyclesCreated       AuditCycle[]         @relation("AuditCycleCreator")
+  auditCyclesClosed        AuditCycle[]         @relation("AuditCycleCloser")
+  auditorAssignments       AuditAssignment[]    @relation("AuditorAssignments")
+  assignedAudits           AuditAssignment[]    @relation("AuditCycleAssigner")
+  verifiedAuditItems       AuditItem[]          @relation("AuditItemVerifier")
+  activityLogs             ActivityLog[]        @relation("UserActivityLogs")
 
   @@map("users")
 }
@@ -67,6 +73,7 @@ model Department {
   employees          User[]       @relation("DepartmentEmployees")
   bookings           Booking[]    @relation("DepartmentBookings")
   resources          Resource[]   @relation("DepartmentResources")
+  audits             AuditCycle[] @relation("DepartmentAudits")
 
   @@map("departments")
 }
@@ -132,6 +139,7 @@ model Asset {
   returns          ReturnRequest[]
   transfers        TransferRequest[]
   maintenanceRequests MaintenanceRequest[]
+  auditItems       AuditItem[]
 
   @@map("assets")
 }
@@ -258,11 +266,16 @@ model AllocationEvent {
 
 model Notification {
   id              String   @id @default(uuid())
+  uuid            String   @unique @default(uuid())
   userId          String
-  type            String
+  title           String   @default("Notification")
   message         String
-  relatedEntityId String?
+  type            String
+  priority        String   @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  link            String?
+  read            Boolean  @default(false)
   isRead          Boolean  @default(false)
+  relatedEntityId String?
   createdAt       DateTime @default(now())
   user            User     @relation("UserNotifications", fields: [userId], references: [uuid])
 
@@ -435,4 +448,91 @@ enum MaintenanceStatus {
   IN_PROGRESS
   RESOLVED
 }
+
+model AuditCycle {
+  id           String            @id @default(uuid())
+  uuid         String            @unique @default(uuid())
+  name         String
+  departmentId String?
+  department   Department?       @relation("DepartmentAudits", fields: [departmentId], references: [id])
+  location     String?
+  startDate    DateTime
+  endDate      DateTime
+  status       AuditStatus       @default(DRAFT)
+  createdBy    String
+  creator      User              @relation("AuditCycleCreator", fields: [createdBy], references: [uuid])
+  closedBy     String?
+  closer       User?             @relation("AuditCycleCloser", fields: [closedBy], references: [uuid])
+  closedAt     DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  assignments  AuditAssignment[]
+  items        AuditItem[]
+
+  @@map("audit_cycles")
+}
+
+model AuditAssignment {
+  id           String     @id @default(uuid())
+  uuid         String     @unique @default(uuid())
+  auditCycleId String
+  auditCycle   AuditCycle @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
+  auditorId    String
+  auditor      User       @relation("AuditorAssignments", fields: [auditorId], references: [uuid])
+  assignedBy   String
+  assigner     User       @relation("AuditCycleAssigner", fields: [assignedBy], references: [uuid])
+  assignedAt   DateTime   @default(now())
+
+  @@map("audit_assignments")
+}
+
+model AuditItem {
+  id           String          @id @default(uuid())
+  uuid         String          @unique @default(uuid())
+  auditCycleId String
+  auditCycle   AuditCycle      @relation(fields: [auditCycleId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  status       AuditItemStatus @default(NOT_VERIFIED)
+  remarks      String?
+  photo        String?
+  verifiedAt   DateTime?
+  verifiedBy   String?
+  verifier     User?           @relation("AuditItemVerifier", fields: [verifiedBy], references: [uuid])
+
+  @@map("audit_items")
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  uuid       String   @unique @default(uuid())
+  userId     String?
+  user       User?    @relation("UserActivityLogs", fields: [userId], references: [uuid])
+  action     String
+  module     String
+  entityId   String?
+  entityType String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  browser    String?
+  createdAt  DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+enum AuditStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CLOSED
+}
+
+enum AuditItemStatus {
+  VERIFIED
+  MISSING
+  DAMAGED
+  NOT_VERIFIED
+}
+
 

@@ -12,6 +12,10 @@ import allocationRoutes from './routes/allocation.routes.js';
 import resourceRoutes from './routes/resource.routes.js';
 import bookingRoutes from './routes/booking.routes.js';
 import maintenanceRoutes from './routes/maintenance.routes.js';
+import auditRoutes from './routes/audit.routes.js';
+import activityRoutes from './routes/activity.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
+import { requestContextMiddleware } from './middlewares/context.middleware.js';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { ApiResponse } from './utils/apiResponse.js';
 
@@ -57,6 +61,7 @@ const authLimiter = rateLimit({
 app.use(express.json({ limit: '16kb' }));
 app.use(express.urlencoded({ extended: true, limit: '16kb' }));
 app.use(cookieParser());
+app.use(requestContextMiddleware);
 app.use('/uploads', express.static('uploads'));
 
 // Apply rate limiting specifically to authentication routes
@@ -72,6 +77,9 @@ app.use('/api/allocations', allocationRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/audit-cycles', auditRoutes);
+app.use('/api/activity', activityRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health Check Route
 app.get('/health', (req, res) => {

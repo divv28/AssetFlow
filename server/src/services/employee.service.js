@@ -283,7 +283,9 @@ class EmployeeService {
     const [
       totalDepartments, totalCategories, totalEmployees, departmentHeads, assetManagers,
       activeAllocations, pendingTransfers, overdueReturns, assetsDueToday, recentAllocations,
-      resourcesBookedToday, availableResources, pendingMaintenance, assetsUnderMaintenance, maintenanceCompletedToday
+      resourcesBookedToday, availableResources, pendingMaintenance, assetsUnderMaintenance, maintenanceCompletedToday,
+      activeAudits, pendingVerification, missingAssets, damagedAssets, closedAudits,
+      recentActivity, latestNotifications, pendingAuditsList
     ] = await Promise.all([
       prisma.department.count({ where: { deletedAt: null } }),
       prisma.category.count({}),
@@ -351,6 +353,29 @@ class EmployeeService {
             lte: endOfToday,
           }
         }
+      }),
+      prisma.auditCycle.count({ where: { status: 'ACTIVE' } }),
+      prisma.auditItem.count({ where: { status: 'NOT_VERIFIED', auditCycle: { status: 'ACTIVE' } } }),
+      prisma.asset.count({ where: { status: 'LOST' } }),
+      prisma.auditItem.count({ where: { status: 'DAMAGED' } }),
+      prisma.auditCycle.count({ where: { status: 'CLOSED' } }),
+      prisma.activityLog.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: { user: { select: { name: true } } }
+      }),
+      prisma.notification.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' }
+      }),
+      prisma.auditCycle.findMany({
+        where: { status: 'ACTIVE' },
+        take: 5,
+        include: {
+          assignments: {
+            include: { auditor: { select: { name: true } } }
+          }
+        }
       })
     ]);
 
@@ -370,6 +395,14 @@ class EmployeeService {
       pendingMaintenance,
       assetsUnderMaintenance,
       maintenanceCompletedToday,
+      activeAudits,
+      pendingVerification,
+      missingAssets,
+      damagedAssets,
+      closedAudits,
+      recentActivity,
+      latestNotifications,
+      pendingAuditsList
     };
   }
 }

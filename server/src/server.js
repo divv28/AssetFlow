@@ -22,6 +22,10 @@ const startServer = async () => {
       console.log(`Server is running in ${process.env.NODE_ENV} mode on port ${PORT}`);
     });
 
+    // Initialize Socket.IO server
+    const { initSocket } = await import('./config/socket.js');
+    initSocket(server);
+
     // Handle graceful shutdowns
     const shutdown = async () => {
       console.log('Shutting down server gracefully...');

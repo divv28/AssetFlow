@@ -312,6 +312,81 @@ export const Dashboard = () => {
               </div>
             </div>
 
+            <div className="space-y-4">
+              <h2 className="text-sm font-bold text-odoo-textSecondary uppercase tracking-wider">
+                Asset Audit Operations
+              </h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                
+                {/* Active Audits */}
+                <div className="bg-white p-5 rounded-card shadow-sm border border-odoo-border flex items-center gap-4 hover:shadow-md transition-all-custom">
+                  <div className="w-11 h-11 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-odoo-textSecondary font-semibold uppercase tracking-wider block">Active Audits</span>
+                    <span className="text-2xl font-extrabold text-odoo-textPrimary block mt-0.5">
+                      {isStatsLoading ? '...' : (stats?.activeAudits || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pending Verification */}
+                <div className="bg-white p-5 rounded-card shadow-sm border border-odoo-border flex items-center gap-4 hover:shadow-md transition-all-custom">
+                  <div className="w-11 h-11 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-odoo-textSecondary font-semibold uppercase tracking-wider block">Pending Verify</span>
+                    <span className="text-2xl font-extrabold text-odoo-textPrimary block mt-0.5">
+                      {isStatsLoading ? '...' : (stats?.pendingVerification || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Missing Assets */}
+                <div className="bg-white p-5 rounded-card shadow-sm border border-odoo-border flex items-center gap-4 hover:shadow-md transition-all-custom">
+                  <div className="w-11 h-11 rounded-lg bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-odoo-textSecondary font-semibold uppercase tracking-wider block">Missing (Lost)</span>
+                    <span className="text-2xl font-extrabold text-odoo-textPrimary block mt-0.5">
+                      {isStatsLoading ? '...' : (stats?.missingAssets || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Damaged Assets */}
+                <div className="bg-white p-5 rounded-card shadow-sm border border-odoo-border flex items-center gap-4 hover:shadow-md transition-all-custom">
+                  <div className="w-11 h-11 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
+                    <Wrench className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-odoo-textSecondary font-semibold uppercase tracking-wider block">Damaged reported</span>
+                    <span className="text-2xl font-extrabold text-odoo-textPrimary block mt-0.5">
+                      {isStatsLoading ? '...' : (stats?.damagedAssets || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Closed Audits */}
+                <div className="bg-white p-5 rounded-card shadow-sm border border-odoo-border flex items-center gap-4 hover:shadow-md transition-all-custom">
+                  <div className="w-11 h-11 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-odoo-textSecondary font-semibold uppercase tracking-wider block">Closed Audits</span>
+                    <span className="text-2xl font-extrabold text-odoo-textPrimary block mt-0.5">
+                      {isStatsLoading ? '...' : (stats?.closedAudits || 0)}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
           </div>
         )}
 
@@ -387,6 +462,95 @@ export const Dashboard = () => {
           </div>
 
         </div>
+
+        {/* Phase 7 Logs & Audits Grid */}
+        {isAdmin && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Pending Audits */}
+            <div className="bg-white rounded-card shadow-sm border border-odoo-border p-6 space-y-4">
+              <h3 className="text-sm font-bold text-odoo-textSecondary uppercase tracking-wider flex items-center gap-2">
+                <Shield className="w-4 h-4 text-primary" />
+                Active Audits
+              </h3>
+              {stats?.pendingAuditsList && stats.pendingAuditsList.length > 0 ? (
+                <div className="divide-y divide-odoo-border text-xs">
+                  {stats.pendingAuditsList.map((audit) => (
+                    <div key={audit.id} className="py-3 flex justify-between items-center">
+                      <div>
+                        <span className="font-bold text-odoo-textPrimary block">{audit.name}</span>
+                        <span className="text-[10px] text-gray-400 block">{audit.location || 'All Locations'}</span>
+                      </div>
+                      <Link
+                        to="/audits"
+                        className="text-[10px] text-primary hover:underline font-bold"
+                      >
+                        Inspect
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400 italic block py-2">No active audits running.</span>
+              )}
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-card shadow-sm border border-odoo-border p-6 space-y-4">
+              <h3 className="text-sm font-bold text-odoo-textSecondary uppercase tracking-wider flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Recent System Activity
+              </h3>
+              {stats?.recentActivity && stats.recentActivity.length > 0 ? (
+                <div className="divide-y divide-odoo-border text-xs">
+                  {stats.recentActivity.map((log) => (
+                    <div key={log.id} className="py-2.5 space-y-0.5">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-odoo-textPrimary">{log.action.replace(/_/g, ' ')}</span>
+                        <span className="text-[9px] text-gray-400">
+                          {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-odoo-textSecondary truncate">
+                        By {log.user?.name || 'System'} | Module: {log.module}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400 italic block py-2">No activity logs recorded.</span>
+              )}
+            </div>
+
+            {/* Latest Notifications */}
+            <div className="bg-white rounded-card shadow-sm border border-odoo-border p-6 space-y-4">
+              <h3 className="text-sm font-bold text-odoo-textSecondary uppercase tracking-wider flex items-center gap-2">
+                <Bell className="w-4 h-4 text-primary" />
+                Latest Alerts
+              </h3>
+              {stats?.latestNotifications && stats.latestNotifications.length > 0 ? (
+                <div className="divide-y divide-odoo-border text-xs">
+                  {stats.latestNotifications.map((notif) => (
+                    <div key={notif.id} className="py-2.5 space-y-0.5">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-odoo-textPrimary truncate">{notif.title}</span>
+                        <span className="text-[9px] text-gray-400">
+                          {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-odoo-textSecondary leading-normal line-clamp-2">
+                        {notif.message}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400 italic block py-2">No notifications sent.</span>
+              )}
+            </div>
+
+          </div>
+        )}
 
       </div>
     </DashboardLayout>
